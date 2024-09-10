@@ -1,6 +1,9 @@
+use std::{borrow::Cow, os::unix::process::CommandExt, process::Command};
+
 use anyhow::Result;
 use clap::{Args, Parser, Subcommand};
 use keyring::Entry;
+use rustyline::{Completer, Editor, Helper, highlight::Highlighter, Hinter, Validator};
 use serde::{Deserialize, Serialize};
 
 const PROFILE_INFO_NAME: &str = "__profile_info";
@@ -25,9 +28,23 @@ struct SetOptions {
     arg_name: String,
 }
 
+#[derive(Completer, Helper, Hinter, Validator)]
+struct MaskingHighlighter;
+
+impl Highlighter for MaskingHighlighter {
+    fn highlight<'l>(&self, line: &'l str, _pos: usize) -> Cow<'l, str> {
+        Cow::Owned("*".repeat(line.chars().count()))
+    }
+
+    fn highlight_char(&self, _line: &str, _pos: usize, _forced: bool) -> bool {
+        true
+    }
+}
+
 fn run_set(opts: &SetOptions) -> Result<()> {
-    // TODO Ask for value
-    let secret = "testing".to_owned();
+    let mut rl = Editor::new()?;
+    rl.set_helper(Some(MaskingHighlighter));
+    let secret = rl.readline("Secret: ")?;
     let mut info = get_profile_info(&opts.profile)?;
     info.ensure_member(opts.arg_name.clone());
     let entry = Entry::new(&opts.profile, &opts.arg_name)?;
@@ -46,12 +63,13 @@ struct UseOptions {
 
 fn run_use(opts: &UseOptions) -> Result<()> {
     let info = get_profile_info(&opts.profile)?;
+    let mut command = Command::new(&opts.command[0]);
+    command.args(&opts.command[1..]);
     for member in info.members {
         let entry = Entry::new(&opts.profile, &member)?;
-        println!("{}={}", member, entry.get_password()?);
+        command.env(member, entry.get_password()?);
     }
-    println!("{:?}", opts.command);
-    Ok(())
+    Err(command.exec().into())
 }
 
 #[derive(Default, Serialize, Deserialize)]
