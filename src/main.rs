@@ -1,7 +1,13 @@
-use std::{borrow::Cow, collections::HashMap, os::unix::process::CommandExt, process::Command};
+use std::{
+    borrow::Cow, collections::HashMap, io::stdout, os::unix::process::CommandExt, process::Command,
+};
 
 use anyhow::Result;
-use clap::{builder::{styling::AnsiColor, Styles}, Args, Parser, Subcommand};
+use clap::{
+    builder::{styling::AnsiColor, Styles},
+    Args, CommandFactory, Parser, Subcommand,
+};
+use clap_complete::{generate, Generator, Shell};
 use keyring::Entry;
 use rustyline::{highlight::Highlighter, Completer, Editor, Helper, Hinter, Validator};
 use serde::{Deserialize, Serialize};
@@ -15,7 +21,6 @@ const STYLES: Styles = Styles::styled()
 
 // TODO
 // - warn when new profile is created
-// - completions
 // - args from stdin
 // - bash exports from stdin
 // - README and LICENSE
@@ -50,6 +55,8 @@ enum Commands {
     Delete(DeleteOptions),
     /// Execute a command and inject a profile's secrets into its environment
     Use(UseOptions),
+    /// Generate shell completions for bash, zsh or fish
+    Completions(CompletionOptions),
 }
 
 #[derive(Args)]
@@ -140,6 +147,17 @@ fn run_use(opts: &UseOptions) -> Result<()> {
     Err(command.exec().into())
 }
 
+#[derive(Args)]
+struct CompletionOptions {
+    /// Name of variable to set on this profile
+    #[arg(required = true)]
+    shell: Shell,
+}
+
+fn run_completions<G: Generator>(gen: G, cmd: &mut clap::Command) {
+    generate(gen, cmd, cmd.get_name().to_string(), &mut stdout());
+}
+
 #[derive(Default, Serialize, Deserialize)]
 struct ProfileInfo {
     members: HashMap<String, String>,
@@ -172,5 +190,9 @@ fn main() -> Result<()> {
         Commands::Unset(unset) => run_unset(&unset),
         Commands::Delete(delete) => run_delete(&delete),
         Commands::Use(useit) => run_use(&useit),
+        Commands::Completions(compl) => {
+            run_completions(compl.shell, &mut GlobalOptions::command());
+            Ok(())
+        }
     }
 }
