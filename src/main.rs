@@ -10,7 +10,6 @@ const PROFILE_INFO_NAME: &str = "__profile_info";
 
 // TODO
 // - warn when new profile is created
-// - unset var
 // - delete profile
 // - general description in help
 // - completions
@@ -25,6 +24,8 @@ const PROFILE_INFO_NAME: &str = "__profile_info";
 enum WithError {
     #[error("Profile {0} not found")]
     ProfileNotFound(String),
+    #[error("Secret {0} not found in profile {1}")]
+    SecretNotFound(String, String),
 }
 
 #[derive(Parser)]
@@ -36,6 +37,7 @@ struct GlobalOptions {
 #[derive(Subcommand)]
 enum Commands {
     Set(SetOptions),
+    Unset(UnsetOptions),
     Use(UseOptions),
 }
 
@@ -46,6 +48,8 @@ struct SetOptions {
     #[arg(long)]
     arg_name: String,
 }
+
+type UnsetOptions = SetOptions; // As long as they are identical, we can cheat
 
 #[derive(Completer, Helper, Hinter, Validator)]
 struct MaskingHighlighter;
@@ -66,6 +70,17 @@ fn run_set(opts: &SetOptions) -> Result<()> {
     let secret = rl.readline("Secret: ")?;
     let mut info = get_profile_info(&opts.profile, true)?;
     info.members.insert(opts.arg_name.clone(), secret);
+    upsert_profile_info(&opts.profile, &info)?;
+    Ok(())
+}
+
+fn run_unset(opts: &UnsetOptions) -> Result<()> {
+    let mut info = get_profile_info(&opts.profile, true)?;
+    if info.members.remove(&opts.arg_name).is_none() {
+        return Err(
+            WithError::SecretNotFound(opts.profile.to_owned(), opts.arg_name.to_owned()).into(),
+        );
+    }
     upsert_profile_info(&opts.profile, &info)?;
     Ok(())
 }
@@ -115,6 +130,7 @@ fn main() -> Result<()> {
     let opts = GlobalOptions::parse();
     match opts.command {
         Commands::Set(set) => run_set(&set),
+        Commands::Unset(unset) => run_unset(&unset),
         Commands::Use(useit) => run_use(&useit),
     }
 }
