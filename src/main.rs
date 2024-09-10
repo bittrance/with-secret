@@ -1,4 +1,4 @@
-use std::{borrow::Cow, os::unix::process::CommandExt, process::Command};
+use std::{borrow::Cow, collections::HashMap, os::unix::process::CommandExt, process::Command};
 
 use anyhow::Result;
 use clap::{Args, Parser, Subcommand};
@@ -46,9 +46,7 @@ fn run_set(opts: &SetOptions) -> Result<()> {
     rl.set_helper(Some(MaskingHighlighter));
     let secret = rl.readline("Secret: ")?;
     let mut info = get_profile_info(&opts.profile)?;
-    info.ensure_member(opts.arg_name.clone());
-    let entry = Entry::new(&opts.profile, &opts.arg_name)?;
-    entry.set_password(&secret)?;
+    info.members.insert(opts.arg_name.clone(), secret);
     upsert_profile_info(&opts.profile, &info)?;
     Ok(())
 }
@@ -65,24 +63,15 @@ fn run_use(opts: &UseOptions) -> Result<()> {
     let info = get_profile_info(&opts.profile)?;
     let mut command = Command::new(&opts.command[0]);
     command.args(&opts.command[1..]);
-    for member in info.members {
-        let entry = Entry::new(&opts.profile, &member)?;
-        command.env(member, entry.get_password()?);
+    for (key, secret) in info.members {
+        command.env(key, secret);
     }
     Err(command.exec().into())
 }
 
 #[derive(Default, Serialize, Deserialize)]
 struct ProfileInfo {
-    members: Vec<String>,
-}
-
-impl ProfileInfo {
-    fn ensure_member(&mut self, member: String) {
-        if !self.members.contains(&member) {
-            self.members.push(member);
-        }
-    }
+    members: HashMap<String, String>,
 }
 
 fn get_profile_info(profile: &str) -> Result<ProfileInfo> {
