@@ -12,8 +12,6 @@ const PROFILE_INFO_NAME: &str = "__profile_info";
 // - warn when new profile is created
 // - completions
 // - color in help
-// - positional args
-// - multiple args
 // - args from stdin
 // - bash exports from stdin
 // - README and LICENSE
@@ -54,8 +52,9 @@ struct SetOptions {
     /// Profile to work with
     #[arg(long)]
     profile: String,
-    #[arg(long)]
-    arg_name: String,
+    /// Name of variable to set on this profile
+    #[arg(trailing_var_arg = true, required = true)]
+    arg_name: Vec<String>,
 }
 
 type UnsetOptions = SetOptions; // As long as they are identical, we can cheat
@@ -76,19 +75,23 @@ impl Highlighter for MaskingHighlighter {
 fn run_set(opts: &SetOptions) -> Result<()> {
     let mut rl = Editor::new()?;
     rl.set_helper(Some(MaskingHighlighter));
-    let secret = rl.readline("Secret: ")?;
     let mut info = get_profile_info(&opts.profile, true)?;
-    info.members.insert(opts.arg_name.clone(), secret);
+    for arg_name in &opts.arg_name {
+        let secret = rl.readline(&format!("Enter value for {}: ", arg_name))?;
+        info.members.insert(arg_name.clone(), secret);
+    }
     upsert_profile_info(&opts.profile, &info)?;
     Ok(())
 }
 
 fn run_unset(opts: &UnsetOptions) -> Result<()> {
     let mut info = get_profile_info(&opts.profile, true)?;
-    if info.members.remove(&opts.arg_name).is_none() {
-        return Err(
-            WithError::SecretNotFound(opts.profile.to_owned(), opts.arg_name.to_owned()).into(),
-        );
+    for arg_name in &opts.arg_name {
+        if info.members.remove(arg_name).is_none() {
+            return Err(
+                WithError::SecretNotFound(opts.profile.to_owned(), arg_name.to_owned()).into(),
+            );
+        }
     }
     upsert_profile_info(&opts.profile, &info)?;
     Ok(())
