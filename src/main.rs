@@ -1,17 +1,21 @@
 use std::{borrow::Cow, collections::HashMap, os::unix::process::CommandExt, process::Command};
 
 use anyhow::Result;
-use clap::{Args, Parser, Subcommand};
+use clap::{builder::{styling::AnsiColor, Styles}, Args, Parser, Subcommand};
 use keyring::Entry;
 use rustyline::{highlight::Highlighter, Completer, Editor, Helper, Hinter, Validator};
 use serde::{Deserialize, Serialize};
 
 const PROFILE_INFO_NAME: &str = "__profile_info";
+const STYLES: Styles = Styles::styled()
+    .header(AnsiColor::Green.on_default().bold())
+    .usage(AnsiColor::Green.on_default().bold())
+    .literal(AnsiColor::Blue.on_default().bold())
+    .placeholder(AnsiColor::Cyan.on_default());
 
 // TODO
 // - warn when new profile is created
 // - completions
-// - color in help
 // - args from stdin
 // - bash exports from stdin
 // - README and LICENSE
@@ -30,6 +34,7 @@ enum WithError {
 /// commands with those pairs injected as environment varialbes. The key-value pairs are stored
 /// in your local secrets service (Linux) or keyring (MacOS).
 #[derive(Parser)]
+#[command(styles=STYLES)]
 struct GlobalOptions {
     #[command(subcommand)]
     command: Commands,

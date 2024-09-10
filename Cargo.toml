@@ -5,7 +5,7 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1.0.87"
-clap = { version = "4.5.17", features = ["derive"] }
+clap = { version = "4.5.17", features = ["color", "derive"] }
 keyring = { version = "3.2.1", features = ["sync-secret-service", "apple-native", "crypto-rust"] }
 rustyline = { version = "14.0.0", features = ["derive"] }
 serde = { version = "1.0.210", features = ["derive"] }
