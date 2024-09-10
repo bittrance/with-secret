@@ -10,7 +10,6 @@ const PROFILE_INFO_NAME: &str = "__profile_info";
 
 // TODO
 // - warn when new profile is created
-// - delete profile
 // - general description in help
 // - completions
 // - color in help
@@ -40,6 +39,7 @@ struct GlobalOptions {
 enum Commands {
     Set(SetOptions),
     Unset(UnsetOptions),
+    Delete(DeleteOptions),
     Use(UseOptions),
 }
 
@@ -85,6 +85,21 @@ fn run_unset(opts: &UnsetOptions) -> Result<()> {
     }
     upsert_profile_info(&opts.profile, &info)?;
     Ok(())
+}
+
+#[derive(Args)]
+struct DeleteOptions {
+    #[arg(long)]
+    profile: String,
+}
+
+fn run_delete(opts: &DeleteOptions) -> Result<()> {
+    let entry = Entry::new(&opts.profile, PROFILE_INFO_NAME)?;
+    match entry.delete_credential() {
+        Ok(_) => Ok(()),
+        Err(keyring::Error::NoEntry) => Err(WithError::ProfileNotFound(opts.profile.to_owned()).into()),
+        err => err.map_err(Into::into),
+    }
 }
 
 #[derive(Args)]
@@ -135,6 +150,7 @@ fn main() -> Result<()> {
     match opts.command {
         Commands::Set(set) => run_set(&set),
         Commands::Unset(unset) => run_unset(&unset),
+        Commands::Delete(delete) => run_delete(&delete),
         Commands::Use(useit) => run_use(&useit),
     }
 }
