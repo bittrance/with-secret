@@ -24,6 +24,8 @@ const PROFILE_INFO_NAME: &str = "__profile_info";
 enum WithError {
     #[error("Profile {0} not found")]
     ProfileNotFound(String),
+    #[error("Parsing failed with '{1}' for profile: {0}")]
+    InvalidProfile(String, serde_json::Error),
     #[error("Secret {0} not found in profile {1}")]
     SecretNotFound(String, String),
 }
@@ -112,7 +114,9 @@ fn get_profile_info(profile: &str, autocreate: bool) -> Result<ProfileInfo> {
     let entry = Entry::new(profile, PROFILE_INFO_NAME)?;
     let maybe_info = entry.get_secret();
     match maybe_info {
-        Ok(info) => serde_json::from_slice(&info).map_err(Into::into),
+        Ok(info) => serde_json::from_slice(&info).map_err(|err| {
+            WithError::InvalidProfile(String::from_utf8_lossy(&info).to_string(), err).into()
+        }),
         Err(keyring::Error::NoEntry) if autocreate => Ok(ProfileInfo::default()),
         Err(keyring::Error::NoEntry) => Err(WithError::ProfileNotFound(profile.to_owned()).into()),
         Err(err) => Err(err.into()),
