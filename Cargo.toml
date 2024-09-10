@@ -1,0 +1,12 @@
+[package]
+name = "with-secret"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1.0.87"
+clap = { version = "4.5.17", features = ["derive"] }
+keyring = { version = "3.2.1", features = ["sync-secret-service", "apple-native", "crypto-rust"] }
+serde = { version = "1.0.210", features = ["derive"] }
+serde_json = "1.0.128"
+thiserror = "1.0.63"
