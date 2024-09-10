@@ -3,10 +3,29 @@ use std::{borrow::Cow, collections::HashMap, os::unix::process::CommandExt, proc
 use anyhow::Result;
 use clap::{Args, Parser, Subcommand};
 use keyring::Entry;
-use rustyline::{Completer, Editor, Helper, highlight::Highlighter, Hinter, Validator};
+use rustyline::{highlight::Highlighter, Completer, Editor, Helper, Hinter, Validator};
 use serde::{Deserialize, Serialize};
 
 const PROFILE_INFO_NAME: &str = "__profile_info";
+
+// TODO
+// - warn when new profile is created
+// - unset var
+// - delete profile
+// - general description in help
+// - completions
+// - color in help
+// - positional args
+// - multiple args
+// - args from stdin
+// - bash exports from stdin
+// - README and LICENSE
+
+#[derive(Debug, thiserror::Error)]
+enum WithError {
+    #[error("Profile {0} not found")]
+    ProfileNotFound(String),
+}
 
 #[derive(Parser)]
 struct GlobalOptions {
@@ -45,7 +64,7 @@ fn run_set(opts: &SetOptions) -> Result<()> {
     let mut rl = Editor::new()?;
     rl.set_helper(Some(MaskingHighlighter));
     let secret = rl.readline("Secret: ")?;
-    let mut info = get_profile_info(&opts.profile)?;
+    let mut info = get_profile_info(&opts.profile, true)?;
     info.members.insert(opts.arg_name.clone(), secret);
     upsert_profile_info(&opts.profile, &info)?;
     Ok(())
@@ -60,7 +79,7 @@ struct UseOptions {
 }
 
 fn run_use(opts: &UseOptions) -> Result<()> {
-    let info = get_profile_info(&opts.profile)?;
+    let info = get_profile_info(&opts.profile, false)?;
     let mut command = Command::new(&opts.command[0]);
     command.args(&opts.command[1..]);
     for (key, secret) in info.members {
@@ -74,12 +93,13 @@ struct ProfileInfo {
     members: HashMap<String, String>,
 }
 
-fn get_profile_info(profile: &str) -> Result<ProfileInfo> {
+fn get_profile_info(profile: &str, autocreate: bool) -> Result<ProfileInfo> {
     let entry = Entry::new(profile, PROFILE_INFO_NAME)?;
     let maybe_info = entry.get_secret();
     match maybe_info {
         Ok(info) => serde_json::from_slice(&info).map_err(Into::into),
-        Err(keyring::Error::NoEntry) => Ok(ProfileInfo::default()),
+        Err(keyring::Error::NoEntry) if autocreate => Ok(ProfileInfo::default()),
+        Err(keyring::Error::NoEntry) => Err(WithError::ProfileNotFound(profile.to_owned()).into()),
         Err(err) => Err(err.into()),
     }
 }
