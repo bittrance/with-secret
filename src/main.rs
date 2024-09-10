@@ -10,7 +10,6 @@ const PROFILE_INFO_NAME: &str = "__profile_info";
 
 // TODO
 // - warn when new profile is created
-// - general description in help
 // - completions
 // - color in help
 // - positional args
@@ -29,6 +28,9 @@ enum WithError {
     SecretNotFound(String, String),
 }
 
+/// with-secret allows you to create profiles with key-value pairs which can then be used to run
+/// commands with those pairs injected as environment varialbes. The key-value pairs are stored
+/// in your local secrets service (Linux) or keyring (MacOS).
 #[derive(Parser)]
 struct GlobalOptions {
     #[command(subcommand)]
@@ -37,14 +39,19 @@ struct GlobalOptions {
 
 #[derive(Subcommand)]
 enum Commands {
+    /// Set one or more secrets in a profile
     Set(SetOptions),
+    /// Clear one or more secrets from a profile
     Unset(UnsetOptions),
+    /// Delete a profile, including all its secrets
     Delete(DeleteOptions),
+    /// Execute a command and inject a profile's secrets into its environment
     Use(UseOptions),
 }
 
 #[derive(Args)]
 struct SetOptions {
+    /// Profile to work with
     #[arg(long)]
     profile: String,
     #[arg(long)]
@@ -89,6 +96,7 @@ fn run_unset(opts: &UnsetOptions) -> Result<()> {
 
 #[derive(Args)]
 struct DeleteOptions {
+    /// Profile to work with
     #[arg(long)]
     profile: String,
 }
@@ -97,16 +105,20 @@ fn run_delete(opts: &DeleteOptions) -> Result<()> {
     let entry = Entry::new(&opts.profile, PROFILE_INFO_NAME)?;
     match entry.delete_credential() {
         Ok(_) => Ok(()),
-        Err(keyring::Error::NoEntry) => Err(WithError::ProfileNotFound(opts.profile.to_owned()).into()),
+        Err(keyring::Error::NoEntry) => {
+            Err(WithError::ProfileNotFound(opts.profile.to_owned()).into())
+        }
         err => err.map_err(Into::into),
     }
 }
 
 #[derive(Args)]
 struct UseOptions {
+    /// Profile to work with
     #[arg(long)]
     profile: String,
-    #[arg(trailing_var_arg = true, allow_hyphen_values = true, hide = true)]
+    /// Command and its args to exec
+    #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
     command: Vec<String>,
 }
 
