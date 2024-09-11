@@ -1,5 +1,9 @@
 use std::{
-    borrow::Cow, collections::HashMap, io::stdout, os::unix::process::CommandExt, process::Command,
+    borrow::Cow,
+    collections::HashMap,
+    io::{stdin, stdout, IsTerminal, Read},
+    os::unix::process::CommandExt,
+    process::Command,
 };
 
 use anyhow::Result;
@@ -21,9 +25,9 @@ const STYLES: Styles = Styles::styled()
 
 // TODO
 // - warn when new profile is created
-// - args from stdin
 // - bash exports from stdin
 // - README and LICENSE
+// - functional tests
 
 #[derive(Debug, thiserror::Error)]
 enum WithError {
@@ -33,6 +37,8 @@ enum WithError {
     InvalidProfile(String, serde_json::Error),
     #[error("Secret {0} not found in profile {1}")]
     SecretNotFound(String, String),
+    #[error("Can only set single secret from stdin")]
+    RequireSingleArgument,
 }
 
 /// with-secret allows you to create profiles with key-value pairs which can then be used to run
@@ -85,12 +91,22 @@ impl Highlighter for MaskingHighlighter {
 }
 
 fn run_set(opts: &SetOptions) -> Result<()> {
-    let mut rl = Editor::new()?;
-    rl.set_helper(Some(MaskingHighlighter));
     let mut info = get_profile_info(&opts.profile, true)?;
-    for arg_name in &opts.arg_name {
-        let secret = rl.readline(&format!("Enter value for {}: ", arg_name))?;
-        info.members.insert(arg_name.clone(), secret);
+    if stdin().is_terminal() {
+        let mut rl = Editor::new()?;
+        rl.set_helper(Some(MaskingHighlighter));
+        for arg_name in &opts.arg_name {
+            let secret = rl.readline(&format!("Enter value for {}: ", arg_name))?;
+            info.members.insert(arg_name.clone(), secret);
+        }
+    } else {
+        if opts.arg_name.len() > 1 {
+            return Err(WithError::RequireSingleArgument.into());
+        }
+        let mut buf = Vec::with_capacity(1024);
+        stdin().read_to_end(&mut buf)?;
+        info.members
+            .insert(opts.arg_name[0].clone(), String::from_utf8(buf)?);
     }
     upsert_profile_info(&opts.profile, &info)?;
     Ok(())
