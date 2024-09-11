@@ -145,20 +145,22 @@ fn run_delete(opts: &DeleteOptions) -> Result<()> {
 
 #[derive(Args)]
 struct UseOptions {
-    /// Profile to work with
+    /// Profile to work with; can be given multiple times
     #[arg(long)]
-    profile: String,
+    profile: Vec<String>,
     /// Command and its args to exec
     #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
     command: Vec<String>,
 }
 
 fn run_use(opts: &UseOptions) -> Result<()> {
-    let info = get_profile_info(&opts.profile, false)?;
     let mut command = Command::new(&opts.command[0]);
     command.args(&opts.command[1..]);
-    for (key, secret) in info.members {
-        command.env(key, secret);
+    for profile in &opts.profile {
+        let info = get_profile_info(profile, false)?;
+        for (key, secret) in info.members {
+            command.env(key, secret);
+        }
     }
     Err(command.exec().into())
 }
