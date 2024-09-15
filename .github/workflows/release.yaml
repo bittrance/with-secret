@@ -1,0 +1,31 @@
+on:
+  push:
+    tags:
+      - "[0-9].[0-9]*"
+
+jobs:
+  release:
+    strategy:
+      matrix:
+        os:
+          - ubuntu-latest
+          - macos-latest
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+      - if: matrix.os == 'ubuntu-latest'
+        run: sudo apt-get install libdbus-1-dev
+      - run: cargo clippy
+      - run: cargo build --release
+      - if: matrix.os == 'ubuntu-latest'
+        run: mv target/release/with-secret target/release/with-secret-x86_64-unknown-linux-gnu
+      - if: matrix.os == 'macos-latest'
+        run: mv target/release/with-secret target/release/with-secret-x86_64-apple-darwin
+      - uses: softprops/action-gh-release@v1
+        with:
+          fail_on_unmatched_files: false
+          files: |
+            target/release/with-secret-*
