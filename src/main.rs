@@ -16,6 +16,8 @@ use keyring::Entry;
 use rustyline::{highlight::Highlighter, Completer, Editor, Helper, Hinter, Validator};
 use serde::{Deserialize, Serialize};
 
+mod input;
+
 const PROFILE_INFO_NAME: &str = "__profile_info";
 const STYLES: Styles = Styles::styled()
     .header(AnsiColor::Green.on_default().bold())
@@ -25,7 +27,6 @@ const STYLES: Styles = Styles::styled()
 
 // TODO
 // - warn when new profile is created
-// - bash exports from stdin
 // - README and LICENSE
 // - functional tests
 
@@ -37,8 +38,10 @@ enum WithError {
     InvalidProfile(String, serde_json::Error),
     #[error("Secret {0} not found in profile {1}")]
     SecretNotFound(String, String),
-    #[error("Can only set single secret from stdin")]
+    #[error("Give zero var names to read key/value pairs non-interactively, or single var name to read its value")]
     RequireSingleArgument,
+    #[error("Parse error at {0}")]
+    ParseError(String),
 }
 
 /// with-secret allows you to create profiles with key-value pairs which can then be used to run
@@ -71,7 +74,7 @@ struct SetOptions {
     #[arg(long)]
     profile: String,
     /// Name of variable to set on this profile
-    #[arg(trailing_var_arg = true, required = true)]
+    #[arg(trailing_var_arg = true)]
     arg_name: Vec<String>,
 }
 
@@ -99,14 +102,19 @@ fn run_set(opts: &SetOptions) -> Result<()> {
             let secret = rl.readline(&format!("Enter value for {}: ", arg_name))?;
             info.members.insert(arg_name.clone(), secret);
         }
-    } else {
-        if opts.arg_name.len() > 1 {
-            return Err(WithError::RequireSingleArgument.into());
-        }
+    } else if opts.arg_name.is_empty() {
+        let mut buf = Vec::with_capacity(1024);
+        stdin().read_to_end(&mut buf)?;
+        let indata = String::from_utf8(buf)?;
+        let secrets = input::parse_secrets(&indata)?;
+        info.members.extend(secrets);
+    } else if opts.arg_name.len() == 1 {
         let mut buf = Vec::with_capacity(1024);
         stdin().read_to_end(&mut buf)?;
         info.members
             .insert(opts.arg_name[0].clone(), String::from_utf8(buf)?);
+    } else {
+        return Err(WithError::RequireSingleArgument.into());
     }
     upsert_profile_info(&opts.profile, &info)?;
     Ok(())
