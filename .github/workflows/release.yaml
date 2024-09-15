@@ -1,7 +1,11 @@
+name: release
 on:
-  push:
-    tags:
-      - "[0-9].[0-9]*"
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+  packages: write
 
 jobs:
   release:
