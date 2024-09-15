@@ -1,5 +1,7 @@
 # with-secret - reduce visibility of secrets in environment variables
 
+![tests](https://github.com/bittrance/with-secret/actions/workflows/pr.yaml/badge.svg?branch=main)
+
 with-secret is a CLI command to keep sensitive environment variables in the local secrets service (Linux) or keyring (MacOS) and allows you to execute commands with them.
 
 The sensitive environment variables will still be visible while the process is running, but using with-secret means they won't be set in the shell you are normally using and they will not end up in you shell history file. Thus, a malicious process must be present when with-secret is exposing them on the executed command.
