@@ -71,7 +71,7 @@ enum Commands {
 #[derive(Args)]
 struct SetOptions {
     /// Profile to work with
-    #[arg(long)]
+    #[arg(long, env = "WITH_SECRET_PROFILE")]
     profile: String,
     /// Name of variable to set on this profile
     #[arg(trailing_var_arg = true)]
@@ -154,7 +154,7 @@ fn run_delete(opts: &DeleteOptions) -> Result<()> {
 #[derive(Args)]
 struct UseOptions {
     /// Profile to work with; can be given multiple times
-    #[arg(long)]
+    #[arg(long, required = true, env = "WITH_SECRET_PROFILE")]
     profile: Vec<String>,
     /// Command and its args to exec
     #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
