@@ -60,6 +60,8 @@ You can also combine multiple profiles, which are merged in the order they are g
 $ with-secret use --profile aws-eu-prod --profile vault-eu-prod terraform plan
 ```
 
+The profile can also be passed using environment variable `WITH_SECRET_PROFILE` which can be useful in combination with tools such as [envdir](https://cr.yp.to/daemontools/envdir.html).
+
 ### Listing profiles
 
 with-secret depends on the excellent [keyring-rs](https://github.com/hwchen/keyring-rs) library which abstracts away the underlying secrets store. There is not yet support for listing. However, you should be able to view profiles in your ordinary keyring UI.

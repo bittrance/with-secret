@@ -5,7 +5,7 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1.0.87"
-clap = { version = "4.5.17", features = ["color", "derive"] }
+clap = { version = "4.5.17", features = ["color", "derive", "env"] }
 clap_complete = "4.5.26"
 keyring = { version = "3.2.1", features = ["sync-secret-service", "apple-native", "crypto-rust"] }
 nom = "7.1.3"
